@@ -9,6 +9,8 @@ Simulate a smart garden tracking system that aim to:
 
 Currently, the sensors value are faked, user can integrate real sensors and modify the `sensor.c` source to read real value.
 
+The project is configured to connect to wifi station and serving wifi access point simultaneously so that user can have mutiple ways to access the dashboard.
+
 ## Prerequisites
 
 -   Docker
