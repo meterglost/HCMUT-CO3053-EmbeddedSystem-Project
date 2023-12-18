@@ -1,0 +1,51 @@
+{
+	"name": "App",
+	"build": {
+		"dockerfile": "Dockerfile"
+	},
+	"userEnvProbe": "loginInteractiveShell",
+
+	"workspaceMount": "source=${localWorkspaceFolder},target=/workspaces,type=bind",
+	"workspaceFolder": "/workspaces/app",
+
+	"containerEnv": {
+		"IDF_TARGET": "esp32"
+	},
+
+	"customizations": {
+		"vscode": {
+			"settings": {
+				"terminal.integrated.defaultProfile.linux": "bash",
+				"idf.pythonBinPath": "${{env:IDF_PYTHON_ENV_PATH}/bin/python",
+
+				"idf.adapterTargetName": "esp32",
+				"idf.flashType": "UART",
+				"idf.flashBaudRate": "115200",
+				"idf.monitorBaudRate": "115200",
+				"idf.port": "rfc2217://host.docker.internal:2217?ign_set_control",
+
+				"C_Cpp.default.includePath": [
+					"${workspaceFolder}/**",
+					"${workspaceFolder}/build/config",
+					"${config:idf.espIdfPath}/components/**"
+				],
+				"C_Cpp.default.cStandard": "c17",
+				"C_Cpp.default.cppStandard": "c++17",
+				"C_Cpp.vcFormat.newLine.beforeOpenBrace.block": "newLine",
+				"C_Cpp.vcFormat.newLine.beforeOpenBrace.function": "newLine",
+
+				"[c][cpp][cmake]": {
+					"editor.tabSize": 4
+				},
+
+				"git.openRepositoryInParentFolders": "never"
+			},
+			"extensions": [
+				"ionutvmi.path-autocomplete",
+				"espressif.esp-idf-extension",
+				"ms-vscode.cpptools",
+				"twxs.cmake"
+			]
+		}
+	}
+}

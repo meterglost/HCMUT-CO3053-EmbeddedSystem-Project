@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Environment Tracking System</title>
+    <link rel="shortcut icon" href="#" type="image/x-icon">
+
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400;1,700&display=swap">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style type="text/tailwindcss">
+        @tailwind base;
+        @tailwind components;
+        @tailwind utilities;
+
+        table {
+            @apply border-collapse table-auto;
+            font-family: 'Courier Prime', monospace;
+
+            & th, & td {
+                @apply px-4 py-2 whitespace-nowrap;
+            }
+
+            & tr > td > input {
+                @apply mx-1 p-1 w-24 text-right outline-none transition-colors duration-[1500ms];
+            }
+
+            & tr > td > input.xpcd {
+                @apply border rounded;
+            }
+
+            & tr.tem > td:has(input)::after {
+                content: "°C";
+            }
+
+            & tr.tem > td:has(input.xpcd)::before {
+                content: "<";
+            }
+
+            & tr.hum > td:has(input)::after {
+                content: "%";
+            }
+
+            & tr.hum > td:has(input.xpcd)::before {
+                content: ">";
+            }
+
+            & button.update {
+                box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.2);
+                @apply transition-shadow;
+            }
+
+            & button.update:hover {
+                box-shadow: 0 0 0 2px #000000;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <table>
+            <thead>
+                <tr>
+                    <th></th>
+                    <th>Expected</th>
+                    <th>Current</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr class="tem">
+                    <td>Temperature</td>
+                    <td><input class="xpcd" type="number" step="0.01" value="0.00" name="tem_xpcd"></td>
+                    <td><input class="curr" type="number" step="0.01" value="0.00" readonly></td>
+                    <td><button type="submit" class="px-2 py-1 update" disabled>Update limit</button></td>
+                </tr>
+                <tr class="hum">
+                    <td>Humidity</td>
+                    <td><input class="xpcd" type="number" step="0.01" value="0.00" name="hum_xpcd"></td>
+                    <td><input class="curr" type="number" step="0.01" value="0.00" readonly></td>
+                    <td><button type="submit" class="px-2 py-1 update" disabled>Update limit</button></td>
+                </tr>
+            </tbody>
+        </table>
+    </main>
+
+    <script>
+        const ws = new WebSocket(`ws://${window.location.hostname}/ws`);
+
+        const elem = {
+            tem: {
+                xpcd: document.querySelector(".tem .xpcd"),
+                curr: document.querySelector(".tem .curr"),
+            },
+            hum: {
+                xpcd: document.querySelector(".hum .xpcd"),
+                curr: document.querySelector(".hum .curr"),
+            },
+            upd: {
+                tem: document.querySelector(".tem .update"),
+                hum: document.querySelector(".hum .update"),
+            },
+        };
+
+        ws.onerror = () => {
+            console.error("Failed to connect");
+        }
+
+        ws.onopen = () => {
+            ws.send("Hello from client");
+        }
+
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data?.replace(/'/g, '"'));
+
+            if (data?.tem?.xpcd)
+                elem.tem.xpcd.value = Number.parseFloat(data.tem.xpcd).toFixed(2);
+            if (data?.tem?.min)
+                elem.tem.curr.min = elem.tem.xpcd.min = Number.parseFloat(data.tem.min).toFixed(2);
+            if (data?.tem?.max)
+                elem.tem.curr.max = elem.tem.xpcd.max = Number.parseFloat(data.tem.max).toFixed(2);
+
+            if (data?.hum?.xpcd)
+                elem.hum.xpcd.value = Number.parseFloat(data.hum.xpcd).toFixed(2);
+            if (data?.hum?.min)
+                elem.hum.curr.min = elem.hum.xpcd.min = Number.parseFloat(data.hum.min).toFixed(2);
+            if (data?.hum?.max)
+                elem.hum.curr.max = elem.hum.xpcd.max = Number.parseFloat(data.hum.max).toFixed(2);
+
+            if (data?.tem?.curr) {
+                elem.tem.curr.value = Number.parseFloat(data.tem.curr).toFixed(2);
+                elem.tem.curr.dispatchEvent(new Event("input"));
+            }
+            if (data?.hum?.curr) {
+                elem.hum.curr.value = Number.parseFloat(data.hum.curr).toFixed(2);
+                elem.hum.curr.dispatchEvent(new Event("input"));
+            }
+        }
+
+        ws.onclose = () => {
+            console.log("Closed");
+        }
+
+        const mix_color_hex = (min_color_hex, max_color_hex, d) => {
+            const min_color = min_color_hex.match(/.{2}/g).map(i => parseInt(i, 16));
+            const max_color = max_color_hex.match(/.{2}/g).map(i => parseInt(i, 16));
+
+            const mix_color = [
+                parseInt(max_color[0] * d + min_color[0] * (1 - d)),
+                parseInt(max_color[1] * d + min_color[1] * (1 - d)),
+                parseInt(max_color[2] * d + min_color[2] * (1 - d)),
+            ];
+
+            return mix_color.map(i => i.toString(16).padStart(2, "0")).join("");
+        };
+
+        elem.tem.xpcd.addEventListener("input", (event) => {
+            document.querySelector(".tem button.update").removeAttribute("disabled");
+        });
+
+        elem.tem.curr.addEventListener("input", (event) => {
+            const d = (elem.tem.curr.value - elem.tem.curr.min) / (elem.tem.curr.max - elem.tem.curr.min);
+            const min_color = "0ea5e9"; // text-sky-500
+            const max_color = "ef4444"; // text-red-500
+            elem.tem.curr.style.color = `#${mix_color_hex(min_color, max_color, d)}`;
+        });
+
+        elem.hum.xpcd.addEventListener("input", (event) => {
+            document.querySelector(".hum button.update").removeAttribute("disabled");
+        });
+
+        elem.hum.curr.addEventListener("input", (event) => {
+            const d = (elem.hum.curr.value - elem.hum.curr.min) / (elem.hum.curr.max - elem.hum.curr.min);
+            const min_color = "ef4444"; // text-red-500
+            const max_color = "0ea5e9"; // text-sky-500
+            elem.hum.curr.style.color = `#${mix_color_hex(min_color, max_color, d)}`;
+        });
+
+        elem.upd.tem.addEventListener("click", (event) => {
+            ws.send(`${elem.tem.xpcd.name}=${elem.tem.xpcd.value}`);
+        });
+
+        elem.upd.hum.addEventListener("click", (event) => {
+            ws.send(`${elem.hum.xpcd.name}=${elem.hum.xpcd.value}`);
+        });
+    </script>
+</body>
+</html>
